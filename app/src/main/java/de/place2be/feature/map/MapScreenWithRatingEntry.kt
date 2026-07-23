@@ -10,17 +10,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Slider
@@ -77,6 +85,8 @@ import kotlin.math.ln
  *
  * Review-Reaktionen sind accountgebunden. Die aktuell gewählte Reaktion wird
  * visuell hervorgehoben; eigene Rezensionen bleiben bewusst nicht bewertbar.
+ * Autor-Icon und Name öffnen über einen UUID-Callback das eigene oder ein
+ * datenschutzbewusst begrenztes öffentliches Profil.
  */
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,6 +102,7 @@ fun MapScreenWithRatingEntry(
     onSelectionCleared: () -> Unit,
     onBookmarkToggle: (placeUuid: UUID, bookmarked: Boolean) -> Unit,
     onReviewReactionToggle: (reviewUuid: UUID, type: ReviewReactionType) -> Unit,
+    onReviewAuthorSelected: (userUuid: UUID) -> Unit,
     onSubmitRating: (
         placeUuid: UUID,
         vibe: Int,
@@ -149,6 +160,7 @@ fun MapScreenWithRatingEntry(
                     onClose = onSelectionCleared,
                     onBookmarkToggle = onBookmarkToggle,
                     onReviewReactionToggle = onReviewReactionToggle,
+                    onReviewAuthorSelected = onReviewAuthorSelected,
                     onSubmitRating = onSubmitRating,
                 )
             }
@@ -157,6 +169,7 @@ fun MapScreenWithRatingEntry(
         MapScreen(
             places = places,
             selectedPlaceUuid = null,
+            focusedPlaceUuid = selectedPlaceUuid,
             onPlaceSelected = onPlaceSelected,
             onSelectionCleared = onSelectionCleared,
             modifier = Modifier.fillMaxSize(),
@@ -164,6 +177,7 @@ fun MapScreenWithRatingEntry(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun InlinePlaceDetailSheet(
     place: MapPlaceUiState,
@@ -176,6 +190,7 @@ private fun InlinePlaceDetailSheet(
     onClose: () -> Unit,
     onBookmarkToggle: (UUID, Boolean) -> Unit,
     onReviewReactionToggle: (UUID, ReviewReactionType) -> Unit,
+    onReviewAuthorSelected: (UUID) -> Unit,
     onSubmitRating: (UUID, Int, Int, Int, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -210,25 +225,13 @@ private fun InlinePlaceDetailSheet(
         modifier = modifier
             .fillMaxWidth()
             .height(PLACE_DETAIL_EXPANDED_HEIGHT)
-            .navigationBarsPadding()
             .verticalScroll(scrollState)
             .padding(start = 20.dp, end = 20.dp, bottom = 24.dp),
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "×",
-                color = DarkInk.copy(alpha = 0.65f),
-                fontSize = 26.sp,
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .clickable(onClick = onClose)
-                    .padding(horizontal = 4.dp),
-            )
-        }
-
         PlaceSummary(
             place = place,
             onBookmarkToggle = onBookmarkToggle,
+            onClose = onClose
         )
         Spacer(Modifier.height(12.dp))
         AggregatedRatings(place)
@@ -416,7 +419,7 @@ private fun InlinePlaceDetailSheet(
                 modifier = Modifier.weight(1f),
             )
             ReviewSortButton(
-                label = "Rezent",
+                label = "Zuletzt",
                 selected = reviewSort == ReviewSort.RECENT,
                 onClick = { reviewSortName = ReviewSort.RECENT.name },
             )
@@ -448,6 +451,7 @@ private fun InlinePlaceDetailSheet(
                     authorName = reviewAuthorNames[review.userUuid] ?: "Community-Mitglied",
                     isOwnReview = review.userUuid == currentUserUuid,
                     currentReaction = currentUserReactionTypes[review.uuid],
+                    onAuthorClick = { onReviewAuthorSelected(review.userUuid) },
                     onReactionToggle = { type -> onReviewReactionToggle(review.uuid, type) },
                 )
                 Spacer(Modifier.height(10.dp))
@@ -460,6 +464,7 @@ private fun InlinePlaceDetailSheet(
 private fun PlaceSummary(
     place: MapPlaceUiState,
     onBookmarkToggle: (UUID, Boolean) -> Unit,
+    onClose: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -483,14 +488,45 @@ private fun PlaceSummary(
         }
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = place.name,
-                color = DarkInk,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = place.name,
+                    color = DarkInk,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.align(Alignment.Bottom)
+                )
+                Row(
+                    modifier = Modifier.requiredWidth(90.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton(
+                        onClick = { onBookmarkToggle(place.uuid, !place.isBookmarked) },
+                    ) {
+                        Icon(
+                            imageVector = if (place.isBookmarked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = if (place.isBookmarked) "Gespeichert" else "Nicht gespeichert",
+                            tint = if (place.isBookmarked) Color.Red.copy(0.7f) else DarkInk
+                        )
+                    }
+                    IconButton(
+                        onClick = onClose
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Schließen"
+                        )
+                    }
+                }
+            }
+
             Text(
                 text = place.description,
                 color = DarkInk.copy(alpha = 0.7f),
@@ -503,19 +539,6 @@ private fun PlaceSummary(
                 color = LeafAccent,
                 fontSize = 10.sp,
                 maxLines = 1,
-            )
-        }
-        Surface(
-            onClick = { onBookmarkToggle(place.uuid, !place.isBookmarked) },
-            modifier = Modifier.padding(start = 4.dp),
-            shape = RoundedCornerShape(50),
-            color = Color.Transparent,
-            contentColor = Moss,
-        ) {
-            Text(
-                text = if (place.isBookmarked) "♥" else "♡",
-                fontSize = 25.sp,
-                modifier = Modifier.padding(8.dp),
             )
         }
     }
@@ -683,10 +706,12 @@ private fun ReviewCard(
     authorName: String,
     isOwnReview: Boolean,
     currentReaction: ReviewReactionType?,
+    onAuthorClick: () -> Unit,
     onReactionToggle: (ReviewReactionType) -> Unit,
 ) {
     var expanded by rememberSaveable(review.uuid.toString()) { mutableStateOf(false) }
     val reviewText = review.text.orEmpty()
+    val authorInitial = authorName.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -695,13 +720,49 @@ private fun ReviewCard(
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = if (isOwnReview) "$authorName · Du" else authorName,
-                    color = DarkInk,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
+                Surface(
+                    onClick = onAuthorClick,
                     modifier = Modifier.weight(1f),
-                )
+                    shape = RoundedCornerShape(15.dp),
+                    color = Color.Transparent,
+                    contentColor = DarkInk,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(end = 8.dp, top = 2.dp, bottom = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(30.dp),
+                            shape = CircleShape,
+                            color = Moss,
+                            contentColor = WarmSurface,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = authorInitial,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = if (isOwnReview) "$authorName · Du" else authorName,
+                                color = DarkInk,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = if (isOwnReview) "Dein Profil ansehen" else "Öffentliches Profil ansehen",
+                                color = LeafAccent,
+                                fontSize = 9.sp,
+                            )
+                        }
+                    }
+                }
                 Text(
                     text = REVIEW_DATE_FORMAT.format(Date(review.timestampMillis)),
                     color = DarkInk.copy(alpha = 0.55f),

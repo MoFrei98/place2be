@@ -1,16 +1,14 @@
-# Projektstruktur für den place2be-MVP
+# Projektstruktur des place2be-MVP
 
-Dieses Dokument beschreibt die vorläufige Projektstruktur nach dem Meeting vom 12.07.2026. Die Struktur verbindet die bereits von Artem/Morris angelegte Grundidee einer Trennung zwischen `core`, `data`, `domain` und `feature` mit einer MVVM- und Feature-orientierten Android-Struktur.
+Dieses Dokument beschreibt den finalen MVP-Stand nach der Umsetzung von Map-, Bewertungs-, Review-, Profil-, Nutzer-Score- und Onboarding-Funktionen.
 
-## Ziel der Struktur
+## Ziele der Struktur
 
-Die Struktur soll drei Dinge gleichzeitig leisten:
+1. UI, Datenmodelle, Datenzugriff und fachliche Regeln bleiben getrennt.
+2. Der Demo-Flow ist bis zur Präsentation am 27.07.2026 stabil und nachvollziehbar.
+3. Spätere Karten-, Backend-, Account- oder Standortlösungen können ergänzt werden, ohne die Domain-Logik vollständig neu zu schreiben.
 
-1. Die App soll bis zur Präsentation am 27.07.2026 pragmatisch umsetzbar bleiben.
-2. UI, Datenmodell, Datenzugriff und fachliche Logik sollen sauber getrennt sein.
-3. Eine spätere echte Datenquelle, Kartenintegration oder Standortprüfung soll möglich bleiben, ohne die UI komplett umzubauen.
-
-## Vorgeschlagene Struktur
+## Aktuelle Paketstruktur
 
 ```text
 de.place2be
@@ -19,94 +17,255 @@ de.place2be
 │   └── Place2BeApp.kt
 ├── core
 │   └── location
-│       └── LocationConfirmationState.kt
+│       ├── LocationConfirmationState.kt
+│       └── RatingEligibilityPolicy.kt
 ├── data
 │   ├── mock
 │   │   └── MockPlaceDataSource.kt
 │   └── repository
 │       ├── MockPlaceRepository.kt
+│       ├── MockReviewReactionRepository.kt
 │       └── MockUserRepository.kt
 ├── domain
 │   ├── model
-│   │   ├── Place.kt
 │   │   ├── Bookmark.kt
+│   │   ├── Place.kt
 │   │   ├── PlaceAttribute.kt
 │   │   ├── PlaceCategory.kt
 │   │   ├── Review.kt
-│   │   └── User.kt
+│   │   ├── ReviewReaction.kt
+│   │   ├── User.kt
+│   │   └── UserScoreResult.kt
 │   ├── repository
 │   │   ├── PlaceRepository.kt
+│   │   ├── ReviewReactionRepository.kt
 │   │   └── UserRepository.kt
 │   └── usecase
-│       └── CalculatePlaceScoreUseCase.kt
+│       ├── CalculatePlaceScoreUseCase.kt
+│       ├── CalculateUserScoreUseCase.kt
+│       └── ReviewSubmissionCooldownPolicy.kt
 ├── feature
 │   ├── map
 │   │   ├── MapScreen.kt
+│   │   ├── MapScreenWithRatingEntry.kt
 │   │   └── MapViewModel.kt
 │   ├── onboarding
+│   │   ├── OnboardingCompletionStore.kt
 │   │   ├── OnboardingScreen.kt
 │   │   └── OnboardingViewModel.kt
 │   ├── placeDetail
 │   │   ├── PlaceDetailScreen.kt
 │   │   └── PlaceDetailViewModel.kt
+│   ├── profile
+│   │   ├── ProfileScreen.kt
+│   │   ├── ProfileScreenWithOnboardingHelp.kt
+│   │   └── ProfileViewModel.kt
 │   └── rating
 │       ├── RatingScreen.kt
 │       └── RatingViewModel.kt
 └── ui
+    ├── component
     └── theme
 ```
 
-## Begründung
+## Aktiver Demo-Flow
 
-### Feature-Pakete
+`Place2BeApp.kt` setzt die Repositories, Use Cases und ViewModel-artigen Klassen zusammen. Der aktive Ablauf lautet:
 
-Jeder größere Screen wird als eigenes Feature verstanden. Das entspricht der Meeting-Entscheidung, dass ein Screen jeweils eine `Screen`-Datei für die UI und eine `ViewModel`-Datei für die Logik bzw. den UI-Zustand bekommen soll.
+```text
+Erststart-Onboarding
+        ↓
+Mock-Map
+        ↓
+Mini-Preview
+        ↓
+erweitertes Bottom-Sheet
+        ↓
+Bewertung + Textrezension + vorhandene Reviews
+        ↓
+eigenes oder öffentliches Profil
+```
 
-Beispiele:
+Die eigentliche Ortsdetail- und Bewertungsinteraktion ist im MVP in `MapScreenWithRatingEntry` integriert. Die separaten `PlaceDetailScreen`- und `RatingScreen`-Dateien bilden weiterhin die fachliche Feature-Struktur beziehungsweise vorbereitete Einzelkomponenten ab, sind aber nicht der primäre Navigationspfad der Live-Demo.
 
-- `feature/map/MapScreen.kt` enthält die Mock-Map-UI.
-- `feature/map/MapViewModel.kt` bereitet Daten für die Map vor.
-- `feature/rating/RatingScreen.kt` enthält die Bewertungs-UI.
-- `feature/rating/RatingViewModel.kt` verarbeitet Eingaben wie Vibes, Sicherheit und Erreichbarkeit.
+## App-Schicht
 
-### Domain-Schicht
+`Place2BeApp.kt` verantwortet:
 
-Die Domain-Schicht enthält fachliche Konzepte, die unabhängig von Compose oder Android UI sind:
+- Erstellung der Local-first-Datenquelle,
+- Repository-Zusammensetzung,
+- Auswahl des Demo-Nutzers,
+- Map-, Profil- und Onboarding-Zielzustände,
+- Weitergabe von Interaktions-Callbacks,
+- Aktualisierung über `dataRevision`,
+- Erhalt des Map- und Bottom-Sheet-Kontexts unter Profil- und Hilfe-Overlays.
 
-- Orte,
-- Bewertungen,
-- Kategorien,
-- Tags/Ortseigenschaften,
-- Nutzer,
-- Score-Berechnung.
+Die Navigation wird im MVP über `rememberSaveable` und einen kleinen Zielzustand umgesetzt. Navigation Compose bleibt eine spätere technische Erweiterung.
 
-Die Score-Logik gehört bewusst nicht in die UI und auch nicht direkt in einen Screen. Sie liegt in `domain/usecase/CalculatePlaceScoreUseCase.kt`, damit sie testbar und in der Präsentation klar erklärbar bleibt.
+## Stateful und stateless Composables
 
-### Data-Schicht
+Jetpack Compose trennt nicht zwingend nach eigenen Klassen zwischen stateful und stateless. Entscheidend ist, wo der Zustand gehalten wird und ob eine Komponente ihre Darstellung vollständig über Parameter erhält.
 
-Die Data-Schicht liefert Daten für die App. Im MVP wird local-first mit JSON-Dateien gearbeitet. `app/src/main/data/mockdata` enthält die versionierten Startdaten und ist als Android-Assets-Quelle registriert. `MockPlaceDataSource` kopiert sie beim ersten Start in den internen App-Speicher und zentralisiert dort CRUD für Orte, Reviews, Nutzer und Bookmarks. Die Repository-Adapter übersetzen diesen Zugriff auf die Domain-Interfaces.
+### Stateless Composables
 
-Später kann diese Schicht erweitert oder ersetzt werden durch:
+Stateless Composables:
 
-- Room/SQLite,
-- Firebase,
-- REST-API,
-- echte Karten-/Standortdaten.
+- erhalten ihren sichtbaren Zustand über Parameter,
+- melden Interaktionen über Callbacks nach außen,
+- besitzen keine eigene fachliche Datenquelle,
+- lassen sich leichter wiederverwenden, testen und in Previews darstellen.
 
-Die UI sollte davon möglichst wenig wissen.
+Typische Beispiele im Projekt sind kleine Darstellungskomponenten wie:
 
-### Core-Schicht
+- Rating-Pills,
+- Filterzeilen,
+- Listenzeilen für Orte,
+- Review- oder Profil-Unterkomponenten, sofern Daten und Aktionen vollständig übergeben werden.
 
-Die Core-Schicht enthält übergreifende technische Hilfsstrukturen, die keinem einzelnen Feature gehören. Für den MVP ist vor allem die Standortbestätigung relevant, auch wenn die echte GPS-Prüfung noch vereinfacht oder simuliert werden kann.
+Eine stateless Signatur folgt sinngemäß diesem Muster:
 
-## Verhältnis zu bestehendem Code
+```kotlin
+@Composable
+fun FilterOptionRow(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+)
+```
 
-Im Repository wurden bereits erste Datenstrukturen und Platzhalter angelegt. Diese Struktur greift diese Vorarbeit auf, ordnet die fachlichen Datenmodelle aber klarer in `domain/model` ein. Die Data-Schicht soll vor allem Datenquellen und Repository-Implementierungen enthalten, nicht die fachliche Bedeutung der App-Objekte selbst.
+Die Komponente kennt weder Repository noch JSON-Dateien und entscheidet nicht selbst, welche Option fachlich ausgewählt ist.
 
-## Wichtig für die Weiterarbeit
+### Stateful Composables
 
-- UI-Code bleibt in `feature/*/*Screen.kt`.
-- Screen-Zustand und Interaktionslogik liegen in `feature/*/*ViewModel.kt`.
-- Fachliche Berechnungen liegen in `domain/usecase`.
-- Fachliche Datenobjekte liegen in `domain/model`.
-- Datenzugriff wird über `domain/repository` abstrahiert und in `data/repository` umgesetzt.
+Stateful Composables:
+
+- halten oder koordinieren UI-Zustand,
+- verwenden beispielsweise `remember` oder `rememberSaveable`,
+- kombinieren mehrere Datenquellen oder State-Holder,
+- geben vorbereiteten Zustand an untergeordnete Komponenten weiter.
+
+`Place2BeApp` bildet im MVP die stateful **Composition Root**. Dort werden Repositories, Use Cases, Navigation, ausgewählter Ort, betrachtetes Profil und `dataRevision` zusammengeführt.
+
+Auch `MapScreenWithRatingEntry` enthält bewusst lokalen UI-Zustand, etwa für:
+
+- Sliderwerte,
+- optionalen Rezensionstext,
+- Auf- und Einklappen des Textfelds,
+- Review-Sortierung,
+- Speicherbestätigung,
+- Scrollposition des Bottom-Sheets.
+
+### State Hoisting
+
+Das bevorzugte Muster lautet:
+
+```text
+Stateful Parent
+  → gibt Zustand und Callbacks weiter
+Stateless Child
+  → rendert Daten und meldet Aktionen zurück
+```
+
+Die Fachlogik bleibt dabei außerhalb der UI. Ein Composable darf beispielsweise anzeigen, ob ein Ort gespeichert ist, aber die persistente Bookmark-Operation wird über einen Callback an Repository- beziehungsweise App-Schicht zurückgegeben.
+
+### Pragmatische MVP-Grenze
+
+Der aktuelle MVP ist nicht vollständig „stateless bis zum letzten Screen“. Einige komplexe Interaktionszustände verbleiben lokal im integrierten Map-/Detail-Flow, um die Demo stabil und den Codeumfang kontrollierbar zu halten.
+
+Eine spätere technische Weiterentwicklung könnte:
+
+- mehr Zustand in native Lifecycle-`ViewModel`-Klassen verschieben,
+- `SavedStateHandle` für wiederherstellbaren Navigationszustand verwenden,
+- Navigation Compose integrieren,
+- komplexe Screens in kleinere State-Holder und stateless Unterkomponenten zerlegen.
+
+## Feature-Schicht
+
+### Map
+
+- `MapScreen.kt` zeichnet die stilisierte Mock-Map, Marker und Default-Panels.
+- `MapViewModel.kt` bereitet Orte, Scores, Tags und Bookmark-Zustände für die Karte auf.
+- `MapScreenWithRatingEntry.kt` verbindet Preview, Detailansicht, Bewertung und Reviews.
+
+### Rating und Reviews
+
+- `RatingViewModel.kt` validiert und speichert Bewertungen.
+- `ReviewSubmissionCooldownPolicy` erzwingt die 24-Stunden-Regel.
+- Reviews erscheinen nach dem Speichern sofort erneut aus dem Repository.
+- Zeitbasierte und Beliebt-Sortierung, Text-Aufklappen und Reaktionen liegen im integrierten Ortsflow.
+
+Die sichtbare zeitbasierte Sortierung wird mit Issue #36 von `Rezent` zu `Zuletzt` umbenannt; der interne Wert `RECENT` kann bestehen bleiben.
+
+### Profil
+
+`ProfileViewModel` erzeugt zwei klar getrennte Zustände:
+
+- `OWN`: vollständige private Historie, Score-Aufteilung und private Aktionen,
+- `PUBLIC`: aggregierte Kennzahlen ohne Orts- oder Bewegungschronologie.
+
+Fremde Profile sind über Autorenbereiche in Rezensionen erreichbar. `ProfileScreenWithOnboardingHelp.kt` ergänzt für das eigene Profil den Zugang zum vollständigen Hilfefluss.
+
+### Onboarding
+
+- `OnboardingViewModel.kt` liefert die vier Erklärseiten.
+- `OnboardingCompletionStore.kt` abstrahiert den persistenten Abschlussstatus.
+- `OnboardingScreen.kt` wird sowohl beim Erststart als auch im Hilfe-Modus verwendet.
+
+Der Android-Store verwendet app-interne `SharedPreferences` und speichert nur einen booleschen Abschlusswert.
+
+## Domain-Schicht
+
+Die Domain-Schicht enthält fachliche Konzepte ohne Compose-Abhängigkeit:
+
+- Orte, Kategorien und Tags,
+- Bewertungen und Textrezensionen,
+- Bookmarks,
+- accountgebundene Review-Reaktionen,
+- Nutzer und Nutzer-Score-Ergebnis,
+- zeitgewichteten Orts-Score,
+- Aktivitäts- und Reputationsregeln,
+- Bewertungs-Cooldown.
+
+`CalculatePlaceScoreUseCase` und `CalculateUserScoreUseCase` halten die komplexeren Regeln bewusst außerhalb der UI und werden durch lokale Unit-Tests abgesichert.
+
+## Data-Schicht
+
+`app/src/main/data/mockdata` enthält versionierte Startdaten. Beim ersten Start kopiert `MockPlaceDataSource` sie in den internen App-Speicher.
+
+Die Datenquelle übernimmt:
+
+- CRUD für Orte, Reviews, Nutzer und Bookmarks,
+- persistente Arbeitskopien statt Änderungen an Assets,
+- Begrenzung auf 50 gespeicherte Rezensionstexte pro Ort,
+- Erhalt verdrängter numerischer Bewertungsdaten.
+
+`MockReviewReactionRepository` persistiert accountgebundene Likes und Dislikes separat. Repository-Adapter stellen der Domain-Schicht stabile Interfaces bereit.
+
+## Demo-Nutzer und Account-Abgrenzung
+
+Der Local-first-MVP verwendet einen festen pseudonymisierten Demo-Nutzer. Es gibt keinen Registrierungs-, Login- oder Profilerstellungsprozess. Das Profil demonstriert Score, Historie und Datenschutz; ein produktiver Account-Lifecycle ist bewusst nicht Bestandteil der aktuellen Struktur.
+
+Eine spätere Account-Lösung müsste zusätzliche Komponenten für Authentifizierung, Session, Kontowiederherstellung, Einwilligungen, Löschung und Synchronisation ergänzen.
+
+## Technische MVP-Kompromisse
+
+- ViewModel-artige Klassen leiten nicht durchgängig von `androidx.lifecycle.ViewModel` ab.
+- Navigation Compose wird nicht verwendet.
+- Dependency Injection erfolgt manuell in `Place2BeApp`.
+- Ein Teil des komplexen Screen-Zustands verbleibt lokal in Composables.
+- Standortbestätigung ist simuliert.
+- Daten sind lokal und nicht zwischen Geräten synchronisiert.
+
+Diese Punkte sind dokumentierte technische Erweiterungen und keine versteckten produktiven Eigenschaften.
+
+## Regeln für die Weiterarbeit
+
+- UI bleibt in `feature/*/*Screen.kt`.
+- Screen-Aufbereitung bleibt in ViewModel-artigen Klassen.
+- Fachliche Regeln liegen in `domain/usecase`.
+- Datenobjekte liegen in `domain/model`.
+- Datenzugriff erfolgt über `domain/repository`.
+- Zustand wird nach Möglichkeit nach oben verlagert und über Parameter weitergegeben.
+- Untergeordnete Darstellungskomponenten bleiben möglichst stateless.
+- Öffentliche Profile erhalten ohne neue Datenschutzentscheidung keine chronologische Ortshistorie.
+- Eine spätere Backend- oder Account-Anbindung darf Local-first-Entscheidungen nicht stillschweigend in öffentliche Datenfreigaben umwandeln.
