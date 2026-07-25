@@ -214,3 +214,34 @@ Derselbe Inhalt kann im eigenen Profil als Hilfe erneut geöffnet werden, ohne d
 **Begründung:** Der Erststart erklärt Produktidee, Mock-Map, Kriterien, Bewertungsalterung und Standortbezug. Die Wiederverwendung vermeidet doppelte, auseinanderlaufende Hilfetexte.
 
 **Konsequenz:** Öffentliche Profile erhalten keinen privaten Hilfe- oder Einstellungszugang. Ein Zurücksetzen der App-Daten stellt den reproduzierbaren Erststartzustand wieder her.
+
+## ADR-018: Lokaler Hinweis-Banner im Karten-Header
+
+**Status:** entschieden für den MVP und umgesetzt
+
+Der freie Bereich zwischen App-Identität und Profilzugang zeigt rotierend vier
+nicht kommerzielle Hinweise: einen aktuell beliebten Ort, eine kurze
+Feature-Erklärung, den lokalen Bookmark-Status und einen Community-Tipp.
+
+Jeder Hinweis führt beim Antippen zu seinem passenden Ziel. Orte öffnen direkt
+die Ortsansicht, der Feature-Hinweis öffnet die Filter und der Bookmark-Hinweis
+die Liste gespeicherter Orte.
+
+Die Inhalte werden ausschließlich aus den bereits geladenen lokalen Kartendaten
+und aus statischen Texten erzeugt. Es gibt keinen Netzwerkabruf, kein
+Impression- oder Klick-Tracking und keine externe Auslieferung. Das Logo mit
+App-Namen und der Profilzugang bleiben dauerhaft sichtbar.
+
+Wenn Systemanimationen deaktiviert sind, bleibt der erste Hinweis statisch.
+Damit erzeugt der Header bei reduzierter Bewegung keine fortlaufenden
+Inhaltswechsel. Andernfalls klappt der einzelne Banner alle sieben Sekunden
+innerhalb von rund 1,2 Sekunden aus und mit dem nächsten Hinweis wieder ein.
+
+**Begründung:** Die Variante erprobt den verfügbaren Headerbereich mit
+MVP-relevanten Inhalten, ohne bereits ein Werbe-, Tracking- oder
+Moderationssystem einzuführen.
+
+**Konsequenz:** Kommerzielle Inhalte sind nicht Bestandteil der lokalen
+Bannerquelle. Eine spätere Werbevariante benötigt vor ihrer Einführung eine
+eigene Entscheidung zu eindeutiger Werbekennzeichnung, Datenschutz,
+Auslieferung, Moderation und pausierbarer Bewegung.
