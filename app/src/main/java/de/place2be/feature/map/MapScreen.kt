@@ -36,7 +36,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FilterAlt
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
@@ -247,7 +246,27 @@ fun MapScreen(
                 viewportResetKey = viewportRevision,
                 onPlaceSelected = onPlaceSelected,
             )
-            MapHeader()
+            MapHeader(
+                places = places,
+                onBannerItemClick = { item ->
+                    when (item.destination) {
+                        HeaderBannerDestination.PLACE -> {
+                            activePanelName = MapBottomPanel.DEFAULT.name
+                            item.placeUuid?.let(onPlaceSelected)
+                        }
+
+                        HeaderBannerDestination.FILTER -> {
+                            onSelectionCleared()
+                            activePanelName = MapBottomPanel.FILTER.name
+                        }
+
+                        HeaderBannerDestination.SAVED -> {
+                            onSelectionCleared()
+                            activePanelName = MapBottomPanel.SAVED.name
+                        }
+                    }
+                },
+            )
         }
     }
 }
@@ -636,7 +655,10 @@ private fun MockCityMap(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun MapHeader() {
+private fun MapHeader(
+    places: List<MapPlaceUiState>,
+    onBannerItemClick: (HeaderBannerItem) -> Unit,
+) {
     Card(
         modifier = Modifier
             .statusBarsPadding()
@@ -652,29 +674,32 @@ private fun MapHeader() {
                 .height(68.dp)
                 .padding(horizontal = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Box(
-
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Image(
                     painter = painterResource(R.drawable.place2be_logo_1),
-                    contentDescription = "Logo",
-                    modifier = Modifier.size(42.dp).clip(CircleShape)
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape),
                 )
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
+                Spacer(Modifier.width(7.dp))
                 Text(
                     text = "place2be",
                     color = DarkInk,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 24.sp,
-                    letterSpacing = (-0.6).sp,
-                    modifier = Modifier.offset(y = 3.dp)
+                    fontSize = 17.sp,
+                    letterSpacing = (-0.4).sp,
                 )
-                Text(text = "Deine Orte. Dein Wohlbefinden.", color = LeafAccent, fontSize = 10.sp)
             }
+            HeaderBanner(
+                places = places,
+                onItemClick = onBannerItemClick,
+                modifier = Modifier.weight(1f),
+            )
             Surface(
                 shape = CircleShape,
                 color = LeafSurface,
