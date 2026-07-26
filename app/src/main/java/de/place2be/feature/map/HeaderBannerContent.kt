@@ -1,88 +1,44 @@
 package de.place2be.feature.map
 
-import java.util.Locale
-import java.util.UUID
-
 internal data class HeaderBannerItem(
     val label: String,
     val message: String,
-    val destination: HeaderBannerDestination,
-    val placeUuid: UUID? = null,
+    val palette: HeaderBannerPalette,
 )
 
-internal enum class HeaderBannerDestination {
-    PLACE,
-    FILTER,
-    SAVED,
+internal enum class HeaderBannerPalette {
+    CYAN,
+    PINK,
 }
 
 /**
- * Erzeugt die lokale, nicht kommerzielle Banner-Rotation fuer den MVP.
+ * Lokale Mock-Anzeigen fuer die Banner-Demo.
  *
- * Alle Inhalte entstehen aus bereits geladenen Kartendaten oder statischen
- * Produkthinweisen. Es gibt weder einen Netzwerkabruf noch Impression- oder
- * Klick-Tracking.
+ * Die Marken sind frei erfunden. Es gibt weder Netzwerkabrufe noch Tracking,
+ * externe Links oder Verweise auf Funktionen innerhalb der App.
  */
-internal fun buildHeaderBannerItems(places: List<MapPlaceUiState>): List<HeaderBannerItem> {
-    val mostPopularPlace = places
-        .filter(MapPlaceUiState::hasReviews)
-        .maxWithOrNull(
-            compareBy<MapPlaceUiState>(MapPlaceUiState::currentScore)
-                .thenBy(MapPlaceUiState::reviewCount),
-        )
-    val bookmarkedPlaceCount = places.count(MapPlaceUiState::isBookmarked)
-    val communityPlace = places.minWithOrNull(
-        compareBy<MapPlaceUiState>(MapPlaceUiState::reviewCount)
-            .thenBy(MapPlaceUiState::name),
-    )
-
-    return listOf(
-        HeaderBannerItem(
-            label = "Gerade beliebt",
-            message = mostPopularPlace?.let { place ->
-                "${place.name} · ${String.format(Locale.GERMANY, "%.1f", place.currentScore)} ★"
-            } ?: "Entdecke den ersten Ort auf der Karte.",
-            destination = if (mostPopularPlace != null) {
-                HeaderBannerDestination.PLACE
-            } else {
-                HeaderBannerDestination.FILTER
-            },
-            placeUuid = mostPopularPlace?.uuid,
-        ),
-        HeaderBannerItem(
-            label = "Feature-Tipp",
-            message = "Finde passende Orte mit den Filtern.",
-            destination = HeaderBannerDestination.FILTER,
-        ),
-        HeaderBannerItem(
-            label = "Gespeichert",
-            message = when (bookmarkedPlaceCount) {
-                0 -> "Lieblingsorte mit dem Herz speichern."
-                1 -> "Ein gespeicherter Ort wartet auf dich."
-                else -> "$bookmarkedPlaceCount gespeicherte Orte warten auf dich."
-            },
-            destination = HeaderBannerDestination.SAVED,
-        ),
-        HeaderBannerItem(
-            label = "Community-Tipp",
-            message = communityPlace?.let { place ->
-                "${place.name} braucht aktuelle Eindrücke."
-            } ?: "Aktuelle Eindrücke halten Orts-Scores relevant.",
-            destination = if (communityPlace != null) {
-                HeaderBannerDestination.PLACE
-            } else {
-                HeaderBannerDestination.FILTER
-            },
-            placeUuid = communityPlace?.uuid,
-        ),
-    )
-}
-
-internal fun HeaderBannerItem.actionDescription(): String = when (destination) {
-    HeaderBannerDestination.PLACE -> "Ort öffnen"
-    HeaderBannerDestination.FILTER -> "Filter öffnen"
-    HeaderBannerDestination.SAVED -> "Gespeicherte Orte öffnen"
-}
+internal fun buildHeaderBannerItems(): List<HeaderBannerItem> = listOf(
+    HeaderBannerItem(
+        label = "Anzeige",
+        message = "CityCycle – urbane Fahrräder für jeden Weg.",
+        palette = HeaderBannerPalette.CYAN,
+    ),
+    HeaderBannerItem(
+        label = "Anzeige",
+        message = "PulseFuel – Protein für deinen nächsten Schritt.",
+        palette = HeaderBannerPalette.PINK,
+    ),
+    HeaderBannerItem(
+        label = "Anzeige",
+        message = "TrailNest – Rucksäcke für Stadt und Natur.",
+        palette = HeaderBannerPalette.CYAN,
+    ),
+    HeaderBannerItem(
+        label = "Werbeplatz",
+        message = "Hier könnte Ihre Werbung stehen!",
+        palette = HeaderBannerPalette.PINK,
+    ),
+)
 
 internal fun nextHeaderBannerIndex(
     currentIndex: Int,

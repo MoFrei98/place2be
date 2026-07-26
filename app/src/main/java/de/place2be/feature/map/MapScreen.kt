@@ -82,7 +82,6 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.place2be.R
@@ -112,7 +111,6 @@ import de.place2be.ui.theme.WarmSurface
 import java.util.Locale
 import java.util.UUID
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 /**
  * Interaktive MVP-Karte. Die Kartenzeichnung ist eine reine Presentation-
@@ -246,27 +244,7 @@ fun MapScreen(
                 viewportResetKey = viewportRevision,
                 onPlaceSelected = onPlaceSelected,
             )
-            MapHeader(
-                places = places,
-                onBannerItemClick = { item ->
-                    when (item.destination) {
-                        HeaderBannerDestination.PLACE -> {
-                            activePanelName = MapBottomPanel.DEFAULT.name
-                            item.placeUuid?.let(onPlaceSelected)
-                        }
-
-                        HeaderBannerDestination.FILTER -> {
-                            onSelectionCleared()
-                            activePanelName = MapBottomPanel.FILTER.name
-                        }
-
-                        HeaderBannerDestination.SAVED -> {
-                            onSelectionCleared()
-                            activePanelName = MapBottomPanel.SAVED.name
-                        }
-                    }
-                },
-            )
+            MapHeader()
         }
     }
 }
@@ -354,19 +332,21 @@ private fun MockMapLayer(
             }
             .clipToBounds(),
     ) {
-        val targetOffsetX = focusedPosition?.let { maxWidth * (MAP_FOCUS_X - it.x) } ?: 0.dp
-        val targetOffsetY = focusedPosition?.let { maxHeight * (MAP_FOCUS_Y - it.y) } ?: 0.dp
+        val focusOffset = focusedPosition?.focusOffset()
+        val targetOffsetX = focusOffset?.let { maxWidth * it.x } ?: 0.dp
+        val targetOffsetY = focusOffset?.let { maxHeight * it.y } ?: 0.dp
         val animatedOffsetX by animateDpAsState(targetOffsetX, tween(MAP_MOVE_DURATION_MILLIS), label = "map-x")
         val animatedOffsetY by animateDpAsState(targetOffsetY, tween(MAP_MOVE_DURATION_MILLIS), label = "map-y")
 
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .offset {
-                    IntOffset(
-                        x = animatedOffsetX.roundToPx() + panOffset.x.roundToInt(),
-                        y = animatedOffsetY.roundToPx() + panOffset.y.roundToInt(),
-                    )
+                // Dragging only translates the already composed map layer. A
+                // layout offset would re-place the nine surrounding tiles,
+                // the city map and every marker on each pointer update.
+                .graphicsLayer {
+                    translationX = animatedOffsetX.toPx() + panOffset.x
+                    translationY = animatedOffsetY.toPx() + panOffset.y
                 },
         ) {
             val targetMarkerPositions = remember(places, markerWorldPositions, targetCamera) {
@@ -428,10 +408,8 @@ private fun MockMapLayer(
                     hintPlacement = hintPlacement,
                     onClick = { onPlaceSelected(place.uuid) },
                     modifier = Modifier.offset(
-                        x = maxWidth * position.x - hintPlacement.side.markerAnchorOffsetDp.dp,
-                        y = maxHeight * position.y -
-                            MARKER_TOP_OFFSET_DP.dp -
-                            MARKER_HINT_MAX_VERTICAL_OFFSET_DP.dp,
+                        x = maxWidth * position.x - MARKER_HINT_WIDTH_DP.dp / 2,
+                        y = maxHeight * position.y - MARKER_CONTAINER_HEIGHT_DP.dp,
                     ),
                 )
             }
@@ -655,10 +633,7 @@ private fun MockCityMap(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun MapHeader(
-    places: List<MapPlaceUiState>,
-    onBannerItemClick: (HeaderBannerItem) -> Unit,
-) {
+private fun MapHeader() {
     Card(
         modifier = Modifier
             .statusBarsPadding()
@@ -674,30 +649,16 @@ private fun MapHeader(
                 .height(68.dp)
                 .padding(horizontal = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.place2be_logo_1),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape),
-                )
-                Spacer(Modifier.width(7.dp))
-                Text(
-                    text = "place2be",
-                    color = DarkInk,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    letterSpacing = (-0.4).sp,
-                )
-            }
+            Image(
+                painter = painterResource(R.drawable.place2be_logo_1),
+                contentDescription = "place2be",
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape),
+            )
             HeaderBanner(
-                places = places,
-                onItemClick = onBannerItemClick,
                 modifier = Modifier.weight(1f),
             )
             Surface(
@@ -734,42 +695,35 @@ private fun PlaceMarker(
         append(", Sicherheit ${formatScore(place.safetyScore)} von 5")
         append(", Erreichbarkeit ${formatScore(place.accessibilityScore)} von 5")
     }
-    Row(
+    Box(
         modifier = modifier
-            .height((MARKER_HEIGHT_DP + 2f * MARKER_HINT_MAX_VERTICAL_OFFSET_DP).dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .width(MARKER_HINT_WIDTH_DP.dp)
+            .height(MARKER_CONTAINER_HEIGHT_DP.dp),
     ) {
-        if (hintPlacement.side == MarkerHintSide.LEFT) {
-            MarkerPlaceOverview(
-                place = place,
-                selected = selected,
-                modifier = Modifier
-                    .offset(y = hintPlacement.verticalOffsetDp.dp)
-                    .clickable(onClick = onClick),
-            )
-            Spacer(Modifier.width(MARKER_HINT_GAP_DP.dp))
-        }
+        MarkerPlaceOverview(
+            place = place,
+            selected = selected,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(
+                    y = -(MARKER_HEIGHT_DP +
+                        MARKER_HINT_GAP_DP +
+                        hintPlacement.verticalOffsetDp).dp,
+                )
+                .clickable(onClick = onClick),
+        )
         PlaceMarkerPin(
             category = place.category,
             markerColor = markerColor,
             selected = selected,
             modifier = Modifier
+                .align(Alignment.BottomCenter)
                 .semantics {
                     contentDescription = markerContentDescription
                     role = Role.Button
                 }
                 .clickable(onClick = onClick),
         )
-        if (hintPlacement.side == MarkerHintSide.RIGHT) {
-            Spacer(Modifier.width(MARKER_HINT_GAP_DP.dp))
-            MarkerPlaceOverview(
-                place = place,
-                selected = selected,
-                modifier = Modifier
-                    .offset(y = hintPlacement.verticalOffsetDp.dp)
-                    .clickable(onClick = onClick),
-            )
-        }
     }
 }
 
@@ -1565,6 +1519,11 @@ private fun Float.fitFraction(
 
 internal data class MapViewportPosition(val x: Float, val y: Float)
 
+internal fun MapViewportPosition.focusOffset(): MapViewportPosition = MapViewportPosition(
+    x = MAP_FOCUS_X - x,
+    y = MAP_FOCUS_Y - y,
+)
+
 internal data class MapCamera(
     val centerX: Float = MAP_CAMERA_TARGET_X,
     val centerY: Float = MAP_CAMERA_TARGET_Y,
@@ -1604,15 +1563,7 @@ internal fun MapViewportPosition.transformedBy(camera: MapCamera): MapViewportPo
         y = MAP_CAMERA_TARGET_Y + (y - camera.centerY) * camera.zoom,
     )
 
-internal enum class MarkerHintSide(
-    val markerAnchorOffsetDp: Float,
-) {
-    RIGHT(MARKER_HALF_WIDTH_DP),
-    LEFT(MARKER_HINT_WIDTH_DP + MARKER_HINT_GAP_DP + MARKER_HALF_WIDTH_DP),
-}
-
 internal data class MarkerHintPlacement(
-    val side: MarkerHintSide,
     val verticalOffsetDp: Float = 0f,
 )
 
@@ -1666,16 +1617,6 @@ internal fun List<MapPlaceUiState>.resolveMarkerHintPlacements(
     }
 }
 
-internal fun List<MapPlaceUiState>.resolveMarkerHintSides(
-    positions: Map<UUID, MapViewportPosition>,
-    viewportWidthDp: Float,
-    viewportHeightDp: Float,
-): Map<UUID, MarkerHintSide> = resolveMarkerHintPlacements(
-    positions = positions,
-    viewportWidthDp = viewportWidthDp,
-    viewportHeightDp = viewportHeightDp,
-).mapValues { (_, placement) -> placement.side }
-
 internal data class MapViewportBounds(
     val left: Float,
     val top: Float,
@@ -1698,20 +1639,17 @@ internal fun MapViewportPosition.hintCardBounds(
     viewportWidthDp: Float,
     viewportHeightDp: Float,
 ): MapViewportBounds {
-    val leftDp = when (placement.side) {
-        MarkerHintSide.LEFT -> -(MARKER_HALF_WIDTH_DP + MARKER_HINT_GAP_DP + MARKER_HINT_WIDTH_DP)
-        MarkerHintSide.RIGHT -> MARKER_RIGHT_HALF_WIDTH_DP + MARKER_HINT_GAP_DP
-    }
-    val rightDp = when (placement.side) {
-        MarkerHintSide.LEFT -> -(MARKER_HALF_WIDTH_DP + MARKER_HINT_GAP_DP)
-        MarkerHintSide.RIGHT -> MARKER_RIGHT_HALF_WIDTH_DP + MARKER_HINT_GAP_DP + MARKER_HINT_WIDTH_DP
-    }
     return MapViewportBounds(
-        left = x + leftDp / viewportWidthDp,
-        top = y + (placement.verticalOffsetDp - MARKER_TOP_OFFSET_DP) / viewportHeightDp,
-        right = x + rightDp / viewportWidthDp,
-        bottom = y +
-            (placement.verticalOffsetDp + MARKER_HEIGHT_DP - MARKER_TOP_OFFSET_DP) / viewportHeightDp,
+        left = x - (MARKER_HINT_WIDTH_DP / 2f) / viewportWidthDp,
+        top = y -
+            (MARKER_HEIGHT_DP +
+                MARKER_HINT_GAP_DP +
+                MARKER_HINT_HEIGHT_DP +
+                placement.verticalOffsetDp) / viewportHeightDp,
+        right = x + (MARKER_HINT_WIDTH_DP / 2f) / viewportWidthDp,
+        bottom = y -
+            (MARKER_HEIGHT_DP + MARKER_HINT_GAP_DP + placement.verticalOffsetDp) /
+            viewportHeightDp,
     )
 }
 
@@ -1720,9 +1658,9 @@ internal fun MapViewportPosition.markerBounds(
     viewportHeightDp: Float,
 ): MapViewportBounds = MapViewportBounds(
     left = x - MARKER_HALF_WIDTH_DP / viewportWidthDp,
-    top = y - MARKER_TOP_OFFSET_DP / viewportHeightDp,
+    top = y - MARKER_HEIGHT_DP / viewportHeightDp,
     right = x + MARKER_RIGHT_HALF_WIDTH_DP / viewportWidthDp,
-    bottom = y + (MARKER_HEIGHT_DP - MARKER_TOP_OFFSET_DP) / viewportHeightDp,
+    bottom = y,
 )
 
 internal fun Offset.constrainedToMapSurroundings(
@@ -1754,7 +1692,7 @@ private enum class MapBottomPanel {
 private const val SELECTION_SEPARATOR = "|"
 private const val MAP_MOVE_DURATION_MILLIS = 550
 private const val MAP_FOCUS_X = 0.5f
-private const val MAP_FOCUS_Y = 0.34f
+private const val MAP_FOCUS_Y = 0.62f
 private const val MAP_VIEWPORT_START_X = 0.10f
 private const val MAP_VIEWPORT_END_X = 0.90f
 private const val MAP_VIEWPORT_START_Y = 0.20f
@@ -1788,11 +1726,16 @@ private const val MARKER_WIDTH_DP = 55f
 private const val MARKER_HALF_WIDTH_DP = 27f
 private const val MARKER_RIGHT_HALF_WIDTH_DP = MARKER_WIDTH_DP - MARKER_HALF_WIDTH_DP
 private const val MARKER_HEIGHT_DP = 66f
-private const val MARKER_TOP_OFFSET_DP = 36f
 private const val MARKER_HINT_VERTICAL_STEP_DP = 72f
 private const val MARKER_HINT_MAX_VERTICAL_OFFSET_DP = 3f * MARKER_HINT_VERTICAL_STEP_DP
 private const val MARKER_HINT_GAP_DP = 4f
 private const val MARKER_HINT_WIDTH_DP = 148f
+private const val MARKER_HINT_HEIGHT_DP = 70f
+private const val MARKER_CONTAINER_HEIGHT_DP =
+    MARKER_HINT_MAX_VERTICAL_OFFSET_DP +
+        MARKER_HINT_HEIGHT_DP +
+        MARKER_HINT_GAP_DP +
+        MARKER_HEIGHT_DP
 private const val MARKER_COLLISION_PENALTY = 1_000_000f
 private const val HINT_COLLISION_PENALTY = 10_000f
 private const val HINT_VIEWPORT_OVERFLOW_PENALTY = 100f
@@ -1801,14 +1744,10 @@ private const val HINT_VERTICAL_OFFSET_PENALTY = 1_000f
 private val MarkerHintPlacement.verticalOffsetSteps: Float
     get() = abs(verticalOffsetDp) / MARKER_HINT_VERTICAL_STEP_DP
 private val MARKER_HINT_PLACEMENT_CANDIDATES = buildList {
-    add(MarkerHintPlacement(MarkerHintSide.RIGHT))
-    add(MarkerHintPlacement(MarkerHintSide.LEFT))
+    add(MarkerHintPlacement())
     for (step in 1..3) {
         val offset = step * MARKER_HINT_VERTICAL_STEP_DP
-        add(MarkerHintPlacement(MarkerHintSide.RIGHT, -offset))
-        add(MarkerHintPlacement(MarkerHintSide.LEFT, -offset))
-        add(MarkerHintPlacement(MarkerHintSide.RIGHT, offset))
-        add(MarkerHintPlacement(MarkerHintSide.LEFT, offset))
+        add(MarkerHintPlacement(offset))
     }
 }
 private val MARKER_OFFSET_CANDIDATES: List<MapViewportPosition> = buildList {

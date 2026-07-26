@@ -215,33 +215,33 @@ Derselbe Inhalt kann im eigenen Profil als Hilfe erneut geöffnet werden, ohne d
 
 **Konsequenz:** Öffentliche Profile erhalten keinen privaten Hilfe- oder Einstellungszugang. Ein Zurücksetzen der App-Daten stellt den reproduzierbaren Erststartzustand wieder her.
 
-## ADR-018: Lokaler Hinweis-Banner im Karten-Header
+## ADR-018: Lokaler Mock-Werbebanner im Karten-Header
 
 **Status:** entschieden für den MVP und umgesetzt
 
-Der freie Bereich zwischen App-Identität und Profilzugang zeigt rotierend vier
-nicht kommerzielle Hinweise: einen aktuell beliebten Ort, eine kurze
-Feature-Erklärung, den lokalen Bookmark-Status und einen Community-Tipp.
+Der freie Bereich zwischen App-Icon und Profilzugang zeigt rotierend vier
+eindeutig als `Anzeige` oder `Werbeplatz` bezeichnete Mock-Anzeigen für frei
+erfundene Marken. Die Inhalte greifen typische Produktkategorien wie Fahrräder,
+Proteinpulver und Rucksäcke auf; ein weiterer Eintrag verwendet den Platzhalter
+`Hier könnte Ihre Werbung stehen!`.
 
-Jeder Hinweis führt beim Antippen zu seinem passenden Ziel. Orte öffnen direkt
-die Ortsansicht, der Feature-Hinweis öffnet die Filter und der Bookmark-Hinweis
-die Liste gespeicherter Orte.
-
-Die Inhalte werden ausschließlich aus den bereits geladenen lokalen Kartendaten
-und aus statischen Texten erzeugt. Es gibt keinen Netzwerkabruf, kein
-Impression- oder Klick-Tracking und keine externe Auslieferung. Das Logo mit
-App-Namen und der Profilzugang bleiben dauerhaft sichtbar.
+Die Anzeigen werden ausschließlich aus statischen lokalen Texten erzeugt. Es
+gibt keinen Netzwerkabruf, keine Links, kein Impression- oder Klick-Tracking
+und keine externe Auslieferung. Der ausgeschriebene App-Name entfällt im
+Karten-Header, während das runde App-Icon und der Profilzugang dauerhaft
+sichtbar bleiben.
 
 Wenn Systemanimationen deaktiviert sind, bleibt der erste Hinweis statisch.
 Damit erzeugt der Header bei reduzierter Bewegung keine fortlaufenden
-Inhaltswechsel. Andernfalls klappt der einzelne Banner alle sieben Sekunden
+Inhaltswechsel. Andernfalls klappt der einzelne Banner alle zehn Sekunden
 innerhalb von rund 1,2 Sekunden aus und mit dem nächsten Hinweis wieder ein.
 
-**Begründung:** Die Variante erprobt den verfügbaren Headerbereich mit
-MVP-relevanten Inhalten, ohne bereits ein Werbe-, Tracking- oder
-Moderationssystem einzuführen.
+**Begründung:** Die Variante demonstriert den vorgesehenen Werbeplatz sichtbar,
+ohne eine produktive Werbe-, Tracking- oder Moderationsinfrastruktur
+vorzutäuschen. Rosa und helles Cyan grenzen den Werbebereich zugleich von den
+sonstigen grün geprägten App-Komponenten ab.
 
-**Konsequenz:** Kommerzielle Inhalte sind nicht Bestandteil der lokalen
-Bannerquelle. Eine spätere Werbevariante benötigt vor ihrer Einführung eine
-eigene Entscheidung zu eindeutiger Werbekennzeichnung, Datenschutz,
-Auslieferung, Moderation und pausierbarer Bewegung.
+**Konsequenz:** Reale kommerzielle Inhalte sind nicht Bestandteil der lokalen
+Bannerquelle. Eine produktive Werbevariante benötigt vor ihrer Einführung eine
+eigene Entscheidung zu Datenschutz, Auslieferung, Moderation, externen Links
+und pausierbarer Bewegung.
