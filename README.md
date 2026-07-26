@@ -27,7 +27,7 @@ Der aktuelle Local-first-MVP umfasst:
 - eine stilisierte Mock-Map mit Markern und Default-Schnellzugriffen,
 - Filter, beliebte Orte und gespeicherte Orte,
 - eine Mini-Preview und eine erweiterbare Ortsdetailansicht im Bottom-Sheet,
-- einen klickbaren lokalen Hinweis-Banner im Karten-Header ohne Tracking,
+- einen rotierenden lokalen Mock-Werbebanner im Karten-Header ohne Tracking,
 - persistente Bookmarks mit leerem Ausgangszustand für einen frischen Demo-Nutzer,
 - Bewertungen von 1 bis 5 für Vibes, Sicherheit und Erreichbarkeit,
 - optionale Textrezensionen,
