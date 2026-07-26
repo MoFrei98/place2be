@@ -129,6 +129,19 @@ class MapFilterAndCameraTest {
     }
 
     @Test
+    fun `selected marker is focused in lower half of map`() {
+        val offset = MapViewportPosition(x = 0.2f, y = 0.1f).focusOffset()
+        val focusedPosition = MapViewportPosition(
+            x = 0.2f + offset.x,
+            y = 0.1f + offset.y,
+        )
+
+        assertEquals(0.5f, focusedPosition.x, FLOAT_TOLERANCE)
+        assertEquals(0.62f, focusedPosition.y, FLOAT_TOLERANCE)
+        assertTrue(focusedPosition.y > 0.5f)
+    }
+
+    @Test
     fun `nearby markers receive readable stable positions`() {
         val places = (1..6).map { index ->
             mapPlace(
@@ -151,68 +164,25 @@ class MapFilterAndCameraTest {
     }
 
     @Test
-    fun `marker hint uses free left side to stay inside viewport`() {
+    fun `marker hint is always positioned north of its marker`() {
         val place = mapPlace("Rechter Rand", PlaceCategory.PARK)
-        val sides = listOf(place).resolveMarkerHintSides(
-            positions = mapOf(place.uuid to MapViewportPosition(x = 0.9f, y = 0.4f)),
+        val position = MapViewportPosition(x = 0.9f, y = 0.4f)
+        val placement = listOf(place).resolveMarkerHintPlacements(
+            positions = mapOf(place.uuid to position),
+            viewportWidthDp = 432f,
+            viewportHeightDp = 800f,
+        ).getValue(place.uuid)
+        val hintBounds = position.hintCardBounds(
+            placement = placement,
+            viewportWidthDp = 432f,
+            viewportHeightDp = 800f,
+        )
+        val markerBounds = position.markerBounds(
             viewportWidthDp = 432f,
             viewportHeightDp = 800f,
         )
 
-        assertEquals(MarkerHintSide.LEFT, sides.getValue(place.uuid))
-    }
-
-    @Test
-    fun `marker hint stays right when both sides are free`() {
-        val place = mapPlace("Freier Ort", PlaceCategory.PARK)
-        val sides = listOf(place).resolveMarkerHintSides(
-            positions = mapOf(place.uuid to MapViewportPosition(x = 0.5f, y = 0.4f)),
-            viewportWidthDp = 432f,
-            viewportHeightDp = 800f,
-        )
-
-        assertEquals(MarkerHintSide.RIGHT, sides.getValue(place.uuid))
-    }
-
-    @Test
-    fun `marker hint avoids a marker that is processed later`() {
-        val firstPlace = mapPlace("Museumsufer", PlaceCategory.PROMENADE)
-        val secondPlace = mapPlace("Mainufer", PlaceCategory.PROMENADE)
-        val sides = listOf(firstPlace, secondPlace).resolveMarkerHintSides(
-            positions = mapOf(
-                firstPlace.uuid to MapViewportPosition(x = 0.30f, y = 0.4f),
-                secondPlace.uuid to MapViewportPosition(x = 0.65f, y = 0.4f),
-            ),
-            viewportWidthDp = 432f,
-            viewportHeightDp = 800f,
-        )
-
-        assertEquals(MarkerHintSide.LEFT, sides.getValue(firstPlace.uuid))
-        assertEquals(MarkerHintSide.RIGHT, sides.getValue(secondPlace.uuid))
-    }
-
-    @Test
-    fun `hint collisions are recalculated for filtered places`() {
-        val target = mapPlace("Rechter Rand", PlaceCategory.PARK)
-        val blocker = mapPlace("Blockierender Ort", PlaceCategory.SQUARE)
-        val positions = mapOf(
-            target.uuid to MapViewportPosition(x = 0.9f, y = 0.4f),
-            blocker.uuid to MapViewportPosition(x = 0.55f, y = 0.4f),
-        )
-
-        val withBlocker = listOf(target, blocker).resolveMarkerHintSides(
-            positions = positions,
-            viewportWidthDp = 432f,
-            viewportHeightDp = 800f,
-        )
-        val afterFilter = listOf(target).resolveMarkerHintSides(
-            positions = positions,
-            viewportWidthDp = 432f,
-            viewportHeightDp = 800f,
-        )
-
-        assertEquals(MarkerHintSide.RIGHT, withBlocker.getValue(target.uuid))
-        assertEquals(MarkerHintSide.LEFT, afterFilter.getValue(target.uuid))
+        assertTrue(hintBounds.bottom <= markerBounds.top)
     }
 
     @Test
@@ -223,9 +193,9 @@ class MapFilterAndCameraTest {
         val places = listOf(leftBlocker, target, rightBlocker)
         val placements = places.resolveMarkerHintPlacements(
             positions = mapOf(
-                leftBlocker.uuid to MapViewportPosition(x = 0.15f, y = 0.4f),
+                leftBlocker.uuid to MapViewportPosition(x = 0.25f, y = 0.4f),
                 target.uuid to MapViewportPosition(x = 0.50f, y = 0.4f),
-                rightBlocker.uuid to MapViewportPosition(x = 0.85f, y = 0.4f),
+                rightBlocker.uuid to MapViewportPosition(x = 0.75f, y = 0.4f),
             ),
             viewportWidthDp = 432f,
             viewportHeightDp = 800f,
@@ -233,7 +203,7 @@ class MapFilterAndCameraTest {
 
         assertEquals(0f, placements.getValue(leftBlocker.uuid).verticalOffsetDp, FLOAT_TOLERANCE)
         assertFalse(
-            "The center hint should move vertically when both horizontal sides are blocked.",
+            "The center hint should move farther north when its default position is blocked.",
             abs(placements.getValue(target.uuid).verticalOffsetDp) < FLOAT_TOLERANCE,
         )
     }
